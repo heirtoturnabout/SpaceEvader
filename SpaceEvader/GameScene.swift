@@ -24,6 +24,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private var spinnyNode : SKShapeNode?
     let hero = SKSpriteNode (imageNamed: "Spaceship")
     let heroSpeed: CGFloat = 100.0
+    var meteorScore = 0
+    var scoreLabel = SKLabelNode (fontNamed: "Arial")
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         
@@ -109,6 +111,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         view.addGestureRecognizer(swipeRight)
         
         run(SKAction.repeatForever(SKAction.sequence([SKAction.run(addMeteor), SKAction.wait(forDuration: 1.0)])))
+        
+        scoreLabel.fontColor = UIColor.white
+        scoreLabel.fontSize = 40
+        scoreLabel.position = CGPoint(x: self.size.width/2, y: self.size.height-50)
+        addChild(scoreLabel)
+        scoreLabel.text = "0"
         
         var x : CGFloat = 0
         var y : CGFloat = 0
@@ -373,6 +381,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bullet.removeFromParent()
         
         meteor.removeFromParent()
+        
+        meteorScore+=1
+        let text = "\(meteorScore)"
+        scoreLabel.text = text
     }
     
     func heroHitMeteor(player:SKSpriteNode, meteor: Enemy) {
