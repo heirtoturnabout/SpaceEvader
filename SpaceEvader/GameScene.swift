@@ -22,10 +22,21 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     private var label : SKLabelNode?
     private var spinnyNode : SKShapeNode?
+    
     let hero = SKSpriteNode (imageNamed: "Spaceship")
     let heroSpeed: CGFloat = 100.0
+    
     var meteorScore = 0
     var scoreLabel = SKLabelNode (fontNamed: "Arial")
+    
+    var level = 1
+    var levelLabel = SKLabelNode (fontNamed: "Arial")
+    
+    var levelLimit = 5
+    var levelIncrease = 5
+    
+    var enemies = [Enemy]()
+    var enemyHealth = 1
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         
@@ -110,13 +121,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         view.addGestureRecognizer(swipeRight)
         
-        run(SKAction.repeatForever(SKAction.sequence([SKAction.run(addMeteor), SKAction.wait(forDuration: 1.0)])))
+        addEnemies()
         
         scoreLabel.fontColor = UIColor.white
         scoreLabel.fontSize = 40
         scoreLabel.position = CGPoint(x: self.size.width/2, y: self.size.height-50)
         addChild(scoreLabel)
         scoreLabel.text = "0"
+        
+        levelLabel.fontColor = UIColor.yellow
+        levelLabel.fontSize = 20
+        levelLabel.position = CGPoint(x: self.size.width * 0.8, y: self.size.height * 0.9)
+        addChild(levelLabel)
+        levelLabel.text = "Level: 1"
+        
         
         var x : CGFloat = 0
         var y : CGFloat = 0
@@ -152,6 +170,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         addChild(meteor)
         
+        enemies.append(meteor)
+        
         var moveMeteor: SKAction
         
         moveMeteor = SKAction.move(to: CGPoint(x: -meteor.size.width/2, y: randomY), duration: 5.0)
@@ -178,7 +198,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func swipedDown (sender:UISwipeGestureRecognizer) {
         var actionMove: SKAction
         
-        actionMove = SKAction.move(to: CGPoint(x: hero.position.x, y: hero.position.y - heroSpeed), duration: 0.5)
+        if hero.position.y - heroSpeed <= 0 {
+            actionMove = SKAction.move(to: CGPoint(x: hero.position.x, y: hero.size.height/2), duration: 0.5)
+            }
+        else {
+            actionMove = SKAction.move(to: CGPoint(x: hero.position.x, y: hero.position.y - heroSpeed), duration: 0.5)
+        }
         
         hero.run(actionMove)
         
@@ -188,7 +213,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func swipedLeft (sender: UISwipeGestureRecognizer) {
         var actionMove: SKAction
         
-        actionMove = SKAction.move(to: CGPoint(x: hero.position.x - heroSpeed, y: hero.position.y), duration: 0.5)
+        if hero.position.x - heroSpeed <= 0 {
+            actionMove = SKAction.move(to: CGPoint(x: hero.size.width/2, y: hero.position.y), duration: 0.5)
+        }
+        else {
+            actionMove = SKAction.move(to: CGPoint(x: hero.position.x - heroSpeed, y: hero.position.y), duration: 0.5)
+        }
+
         
         hero.run(actionMove)
         
@@ -198,7 +229,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func swipedRight (sender: UISwipeGestureRecognizer) {
         var actionMove: SKAction
         
-        actionMove = SKAction.move(to: CGPoint(x: hero.position.x + heroSpeed, y: hero.position.y), duration: 0.5)
+        if hero.position.x + heroSpeed >= size.width {
+            actionMove = SKAction.move(to: CGPoint(x: size.width - hero.size.width/2, y: hero.position.y), duration: 0.5)
+        }
+        else {
+            actionMove = SKAction.move(to: CGPoint(x: hero.position.x + heroSpeed, y: hero.position.y), duration: 0.5)
+        }
+
         
         hero.run(actionMove)
         
@@ -268,7 +305,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             case BodyType.Bullet:
                 
                 if let bodyBNode = contact.bodyB.node as? SKSpriteNode, let bodyANode = contact.bodyA.node as? Enemy {
-                    
+                    explodeMeteor(meteor: bodyANode)
                     bulletHitMeteor(bullet: bodyBNode, meteor: bodyANode)
                     
                 }
@@ -304,9 +341,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             case BodyType.Meteor:
                 
                 if let bodyANode = contact.bodyA.node as? SKSpriteNode, let bodyBNode = contact.bodyB.node as? Enemy {
+                    explodeMeteor(meteor: bodyBNode)
                     
                     bulletHitMeteor(bullet: bodyANode, meteor: bodyBNode)
-                    
                 }
                 
                 
@@ -378,6 +415,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     func bulletHitMeteor(bullet: SKSpriteNode, meteor: SKSpriteNode) {
         
+        if let meteorIndex = enemies.index(of: meteor as! Enemy) {
+            enemies.remove(at: meteorIndex)
+        }
+        
         bullet.removeFromParent()
         
         meteor.removeFromParent()
@@ -385,6 +426,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         meteorScore+=1
         let text = "\(meteorScore)"
         scoreLabel.text = text
+        
+        checkLevelIncrease()
     }
     
     func heroHitMeteor(player:SKSpriteNode, meteor: Enemy) {
@@ -402,5 +445,61 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         gameOverLabel.position = CGPoint(x: self.size.width/2, y: self.size.height/2)
         
         addChild(gameOverLabel)
+    }
+    
+    func explodeMeteor (meteor: Enemy) {
+        print("EXPLODE")
+        let explosions: [SKSpriteNode] = [SKSpriteNode(), SKSpriteNode(), SKSpriteNode(), SKSpriteNode(), SKSpriteNode()]
+        
+        for explosion in explosions {
+            explosion.color = UIColor.orange
+            explosion.size = CGSize(width: 3, height: 3)
+            explosion.position = CGPoint(x: meteor.position.x, y: meteor.position.y)
+            
+            let randomExplosionX = (random() * (1000 + size.width)) - size.width
+            
+            let randomExplosionY = (random() * (1000 + size.height)) - size.height
+            
+            let moveExplosion : SKAction
+            
+            moveExplosion = SKAction.move(to: CGPoint(x: randomExplosionX, y: randomExplosionY), duration: 10.0)
+            explosion.run(SKAction.sequence([moveExplosion, SKAction.removeFromParent()]))
+            
+            
+            
+            addChild(explosion)
+        }
+    }
+    
+    func addEnemies() {
+        run(SKAction.repeatForever(SKAction.sequence([SKAction.run(addMeteor), SKAction.wait(forDuration: 1.0)])), withKey:"addEnemies")
+
+    }
+    
+    func stopEnemies() {
+        for enemy in enemies{
+            enemy.removeFromParent()
+        }
+        removeAction(forKey: "addEnemies")
+    }
+    
+    func increaseLevel() {
+        levelLimit = levelLimit + levelIncrease
+        level += 1
+        levelLabel.text = "Level: \(level)"
+    }
+    
+    func checkLevelIncrease() {
+        if meteorScore > levelLimit {
+            for enemy in enemies {
+                enemy.removeFromParent()
+            }
+            enemies = [Enemy]()
+            
+            let runEnemies = SKAction.sequence([SKAction.run(stopEnemies), SKAction.wait(forDuration: 10.0), SKAction.run(increaseLevel), SKAction.run(addEnemies)])
+            
+            run(runEnemies)
+        }
+        
     }
 }
